@@ -68,5 +68,21 @@ func main() {
 		log.Fatalf("Failed to migrate database: %v", err)
 	}
 
-	log.Println("Database migration completed successfully")
+	// テストデータを準備する
+	_, err = db.Exec(`
+		INSERT INTO users (user_id, username) VALUES
+		('user1', 'User 1'),
+		('user2', 'User 2')
+		ON CONFLICT (user_id) DO NOTHING;
+
+		INSERT INTO balances (user_id, amount, valid_from, valid_to) VALUES
+		('user1', 1000000, '2023-01-01 00:00:00', '9999-12-31 23:59:59'),
+		('user2', 1000000, '2023-01-01 00:00:00', '9999-12-31 23:59:59')
+		ON CONFLICT (user_id, valid_from) DO NOTHING;
+	`)
+	if err != nil {
+		log.Fatalf("Failed to prepare test data: %v", err)
+	}
+
+	log.Println("Database migration and test data preparation completed successfully")
 }

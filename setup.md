@@ -34,34 +34,34 @@ brew services start postgresql
 psql --version
 ```
 
-### 5. PostgreSQLのタイムゾーンをUTCに設定する
-
-```bash
-psql -c "ALTER DATABASE postgres SET timezone TO 'UTC';"
-```
-
-### 6. 新しいデータベースを作成する
+### 5. 新しいデータベースを作成する
 
 ```bash
 createdb go_btdm_api
 ```
 
-### 7. 新しいデータベースに接続する
+### 6. 新しいデータベースに接続する
 
 ```bash
 psql -d go_btdm_api
 ```
 
-### 8. 新しいユーザーを作成し、パスワードを設定する
+### 7. 新しいユーザーを作成し、パスワードを設定する
 
 ```sql
 CREATE USER your_username WITH PASSWORD 'your_password';
 ```
 
-### 9. 作成したユーザーにデータベースの権限を付与する
+### 8. 作成したユーザーにデータベースの権限を付与する
 
 ```sql
 GRANT ALL PRIVILEGES ON DATABASE go_btdm_api TO your_username;
+```
+
+### 9. タイムゾーンをUTCに設定する
+
+```sql
+ALTER DATABASE go_btdm_api SET timezone TO 'UTC';
 ```
 
 ### 10. データベースを切断する
@@ -69,6 +69,7 @@ GRANT ALL PRIVILEGES ON DATABASE go_btdm_api TO your_username;
 ```
 \q
 ```
+
 
 ## APIのセットアップと実行
 
