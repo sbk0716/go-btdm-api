@@ -34,6 +34,7 @@ func HandleTransaction(db *sqlx.DB) echo.HandlerFunc {
 
 		// 取引処理を実行します
 		if err := processTransaction(tx, req); err != nil {
+			tx.Rollback() // エラー時にはトランザクションをロールバックします
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		}
 
@@ -92,18 +93,18 @@ func HandleGetBalance(db *sqlx.DB) echo.HandlerFunc {
 		if asOf == "" {
 			// as_ofパラメータが指定されていない場合は現在の残高を取得
 			err = db.Get(&balance, `
-			SELECT * FROM balances
-			WHERE user_id = $1 AND valid_to = '9999-12-31 23:59:59'
-			`, userID)
+            SELECT * FROM balances
+            WHERE user_id = $1 AND valid_to = '9999-12-31 23:59:59'
+            `, userID)
 		} else {
 			// as_ofパラメータが指定されている場合はその時点での残高を取得
 			err = db.Get(&balance, `
-			SELECT * FROM balances
-			WHERE user_id = $1 AND valid_from <= $2 AND valid_to > $2
-			`, userID, asOf)
+            SELECT * FROM balances
+            WHERE user_id = $1 AND valid_from <= $2 AND valid_to > $2
+            `, userID, asOf)
 		}
 
-		if err == sql.ErrNoRows { // 修正: sqlx.ErrNoRows -> sql.ErrNoRows
+		if err == sql.ErrNoRows {
 			return c.JSON(http.StatusNotFound, map[string]string{"error": "User not found"})
 		}
 		if err != nil {
@@ -125,17 +126,17 @@ func HandleGetTransactionHistory(db *sqlx.DB) echo.HandlerFunc {
 		if asOf == "" {
 			// as_ofパラメータが指定されていない場合は全ての取引履歴を取得
 			err = db.Select(&history, `
-			SELECT * FROM transaction_history
-			WHERE sender_id = $1 OR receiver_id = $1
-			ORDER BY effective_date DESC, recorded_at DESC
-			`, userID)
+            SELECT * FROM transaction_history
+            WHERE sender_id = $1 OR receiver_id = $1
+            ORDER BY effective_date DESC, recorded_at DESC
+            `, userID)
 		} else {
 			// as_ofパラメータが指定されている場合はその時点までの取引履歴を取得
 			err = db.Select(&history, `
-			SELECT * FROM transaction_history
-			WHERE (sender_id = $1 OR receiver_id = $1) AND effective_date <= $2
-			ORDER BY effective_date DESC, recorded_at DESC
-			`, userID, asOf)
+            SELECT * FROM transaction_history
+            WHERE (sender_id = $1 OR receiver_id = $1) AND effective_date <= $2
+            ORDER BY effective_date DESC, recorded_at DESC
+            `, userID, asOf)
 		}
 
 		if err != nil {

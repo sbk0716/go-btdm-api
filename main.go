@@ -64,7 +64,7 @@ func main() {
 	e.Validator = &CustomValidator{validator: validator.New()}
 
 	// ミドルウェアの設定
-	e.Use(models.TransactionMiddleware(db)) // 修正: ミドルウェアを適用
+	e.Use(models.TransactionMiddleware(db))
 
 	// 取引用のエンドポイントを設定します
 	e.POST("/transaction", handlers.HandleTransaction(db))
