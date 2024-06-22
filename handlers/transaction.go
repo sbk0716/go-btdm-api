@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"database/sql"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -19,6 +20,7 @@ func HandleTransaction(db *sqlx.DB) echo.HandlerFunc {
 		if err := c.Bind(&req); err != nil {
 			return c.JSON(http.StatusBadRequest, map[string]string{"error": "リクエストが不正です"})
 		}
+
 		// リクエストの情報をバリデーションします
 		if err := c.Validate(&req); err != nil {
 			return c.JSON(http.StatusBadRequest, map[string]string{"error": "リクエストデータが無効です"})
@@ -34,7 +36,6 @@ func HandleTransaction(db *sqlx.DB) echo.HandlerFunc {
 
 		// 取引処理を実行します
 		if err := processTransaction(tx, req); err != nil {
-			tx.Rollback() // エラー時にはトランザクションをロールバックします
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		}
 
@@ -47,35 +48,35 @@ func HandleTransaction(db *sqlx.DB) echo.HandlerFunc {
 func processTransaction(tx *sqlx.Tx, req models.TransactionRequest) error {
 	// ユーザーの存在を確認します
 	if err := models.CheckUserExists(tx, req.SenderID); err != nil {
-		return err
+		return fmt.Errorf("Failed to check sender existence: %w", err)
 	}
 	if err := models.CheckUserExists(tx, req.ReceiverID); err != nil {
-		return err
+		return fmt.Errorf("Failed to check receiver existence: %w", err)
 	}
 
 	// 排他ロックを取得します
 	if err := models.AcquireLock(tx, req.SenderID, req.ReceiverID); err != nil {
-		return err
+		return fmt.Errorf("Failed to acquire lock: %w", err)
 	}
 
 	// 重複リクエストの判定を行います
 	if err := models.CheckDuplicateTransaction(tx, req.TransactionID); err != nil {
-		return err
+		return fmt.Errorf("Duplicate transaction: %w", err)
 	}
 
 	// 送金者の残高を更新します
 	if err := models.UpdateBalance(tx, req.SenderID, -req.Amount, req.EffectiveDate); err != nil {
-		return err
+		return fmt.Errorf("Failed to update sender balance: %w", err)
 	}
 
 	// 受取人の残高を更新します
 	if err := models.UpdateBalance(tx, req.ReceiverID, req.Amount, req.EffectiveDate); err != nil {
-		return err
+		return fmt.Errorf("Failed to update receiver balance: %w", err)
 	}
 
 	// 取引履歴を記録します
 	if err := models.RecordTransaction(tx, req); err != nil {
-		return err
+		return fmt.Errorf("Failed to record transaction: %w", err)
 	}
 
 	return nil
@@ -108,7 +109,7 @@ func HandleGetBalance(db *sqlx.DB) echo.HandlerFunc {
 			return c.JSON(http.StatusNotFound, map[string]string{"error": "User not found"})
 		}
 		if err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to get balance"})
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": fmt.Sprintf("Failed to get balance: %v", err)})
 		}
 		return c.JSON(http.StatusOK, balance)
 	}
@@ -140,7 +141,7 @@ func HandleGetTransactionHistory(db *sqlx.DB) echo.HandlerFunc {
 		}
 
 		if err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to get transaction history"})
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": fmt.Sprintf("Failed to get transaction history: %v", err)})
 		}
 		return c.JSON(http.StatusOK, history)
 	}

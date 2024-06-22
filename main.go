@@ -12,6 +12,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/joho/godotenv"
 	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
 	_ "github.com/lib/pq"
 )
 
@@ -59,6 +60,9 @@ func init() {
 func main() {
 	// Echoインスタンスを作成します
 	e := echo.New()
+
+	// ロガーのセットアップ
+	e.Use(middleware.Logger())
 
 	// カスタムバリデータを設定します
 	e.Validator = &CustomValidator{validator: validator.New()}
