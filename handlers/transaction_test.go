@@ -16,6 +16,7 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/labstack/echo/v4"
 	_ "github.com/lib/pq"
+	"github.com/sbk0716/go-btdm-api/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -77,7 +78,7 @@ func TestHandleTransaction_ConcurrentRequests(t *testing.T) {
 	e := echo.New()
 	e.Validator = &CustomValidator{validator: validator.New()}
 
-	requestBody := TransactionRequest{
+	requestBody := models.TransactionRequest{
 		SenderID:      "user1",
 		ReceiverID:    "user2",
 		Amount:        100,

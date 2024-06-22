@@ -1,5 +1,3 @@
-// main.go
-
 package main
 
 import (
@@ -66,7 +64,7 @@ func main() {
 	e.Validator = &CustomValidator{validator: validator.New()}
 
 	// ミドルウェアの設定
-	e.Use(models.TransactionMiddleware)
+	e.Use(models.TransactionMiddleware(db)) // 修正: ミドルウェアを適用
 
 	// 取引用のエンドポイントを設定します
 	e.POST("/transaction", handlers.HandleTransaction(db))

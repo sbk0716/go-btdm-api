@@ -1,22 +1,22 @@
-// handlers/test_data.go
-
 package handlers
 
 import (
 	"net/http"
 	"time"
+
+	"github.com/sbk0716/go-btdm-api/models"
 )
 
 // transactionTests は取引処理のテストケースを定義します
 var transactionTests = []struct {
 	name           string
-	request        TransactionRequest
+	request        models.TransactionRequest
 	expectedStatus int
 	expectedError  string
 }{
 	{
 		name: "有効な取引",
-		request: TransactionRequest{
+		request: models.TransactionRequest{
 			SenderID:      "user1",
 			ReceiverID:    "user2",
 			Amount:        100,
@@ -27,7 +27,7 @@ var transactionTests = []struct {
 	},
 	{
 		name: "存在しない送金者",
-		request: TransactionRequest{
+		request: models.TransactionRequest{
 			SenderID:      "nonexistent",
 			ReceiverID:    "user2",
 			Amount:        100,
@@ -39,7 +39,7 @@ var transactionTests = []struct {
 	},
 	{
 		name: "残高不足",
-		request: TransactionRequest{
+		request: models.TransactionRequest{
 			SenderID:      "user1",
 			ReceiverID:    "user2",
 			Amount:        2000,
@@ -51,7 +51,7 @@ var transactionTests = []struct {
 	},
 	{
 		name: "過去の日付での取引",
-		request: TransactionRequest{
+		request: models.TransactionRequest{
 			SenderID:      "user1",
 			ReceiverID:    "user2",
 			Amount:        100,
@@ -63,7 +63,7 @@ var transactionTests = []struct {
 	},
 	{
 		name: "重複したトランザクションID",
-		request: TransactionRequest{
+		request: models.TransactionRequest{
 			SenderID:      "user1",
 			ReceiverID:    "user2",
 			Amount:        100,

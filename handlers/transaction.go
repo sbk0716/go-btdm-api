@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"database/sql"
 	"net/http"
 	"time"
 
@@ -102,7 +103,7 @@ func HandleGetBalance(db *sqlx.DB) echo.HandlerFunc {
 			`, userID, asOf)
 		}
 
-		if err == sqlx.ErrNoRows {
+		if err == sql.ErrNoRows { // 修正: sqlx.ErrNoRows -> sql.ErrNoRows
 			return c.JSON(http.StatusNotFound, map[string]string{"error": "User not found"})
 		}
 		if err != nil {
