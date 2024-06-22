@@ -1,0 +1,99 @@
+[
+  {
+    "name": "Valid transaction",
+    "request": {
+      "sender_id": "user1",
+      "receiver_id": "user2",
+      "amount": 100,
+      "transaction_id": "tx1",
+      "effective_date": "2023-06-22T10:00:00Z"
+    },
+    "expectedStatus": 201,
+    "expectedResponse": {
+      "message": "transaction created successfully"
+    }
+  },
+  {
+    "name": "Insufficient balance",
+    "request": {
+      "sender_id": "user1",
+      "receiver_id": "user2",
+      "amount": 1000000,
+      "transaction_id": "tx2",
+      "effective_date": "2023-06-22T10:00:00Z"
+    },
+    "expectedStatus": 400,
+    "expectedResponse": {
+      "message": "insufficient balance"
+    }
+  },
+  {
+    "name": "Duplicate transaction",
+    "request": {
+      "sender_id": "user1",
+      "receiver_id": "user2",
+      "amount": 100,
+      "transaction_id": "tx1",
+      "effective_date": "2023-06-22T10:00:00Z"
+    },
+    "expectedStatus": 409,
+    "expectedResponse": {
+      "message": "duplicate transaction"
+    }
+  },
+  {
+    "name": "User not found",
+    "request": {
+      "sender_id": "userX",
+      "receiver_id": "user2",
+      "amount": 100,
+      "transaction_id": "tx3",
+      "effective_date": "2023-06-22T10:00:00Z"
+    },
+    "expectedStatus": 404,
+    "expectedResponse": {
+      "message": "user not found"
+    }
+  },
+  {
+    "name": "Missing transaction ID",
+    "request": {
+      "sender_id": "user1",
+      "receiver_id": "user2",
+      "amount": 100,
+      "effective_date": "2023-06-22T10:00:00Z"
+    },
+    "expectedStatus": 400,
+    "expectedResponse": {
+      "message": "transaction ID is required"
+    }
+  },
+  {
+    "name": "Past effective date",
+    "request": {
+      "sender_id": "user1",
+      "receiver_id": "user2",
+      "amount": 100,
+      "transaction_id": "tx4",
+      "effective_date": "2022-06-22T10:00:00Z"
+    },
+    "expectedStatus": 400,
+    "expectedResponse": {
+      "message": "effective date must be in the future"
+    }
+  },
+  {
+    "name": "Invalid amount",
+    "request": {
+      "sender_id": "user1",
+      "receiver_id": "user2",
+      "amount": -100,
+      "transaction_id": "tx5",
+      "effective_date": "2023-06-22T10:00:00Z"
+    },
+    "expectedStatus": 400,
+    "expectedResponse": {
+      "message": "amount must be greater than zero"
+    }
+  }
+]
