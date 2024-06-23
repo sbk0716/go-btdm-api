@@ -67,7 +67,7 @@ func main() {
         );
     `)
 	if err != nil {
-		log.Fatalf("Failed to migrate database: %v", err)
+		log.Fatalf("データベースのマイグレーションに失敗しました: %v", err)
 	}
 
 	// テストデータを挿入する
@@ -78,13 +78,13 @@ func main() {
         ON CONFLICT (user_id) DO NOTHING;
 
         INSERT INTO balances (user_id, amount, valid_from, valid_to, recorded_at, system_from, system_to, created_at) VALUES
-        ('user1', 10000000, CURRENT_TIMESTAMP, '9999-12-31 23:59:59', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, '9999-12-31 23:59:59', CURRENT_TIMESTAMP),
+        ('user1', 10000000, CURRENT_TIMESTAMP, '9999-12-31 23:59:59', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, '9999-12-31 23:59:59',CURRENT_TIMESTAMP),
         ('user2', 20000000, CURRENT_TIMESTAMP, '9999-12-31 23:59:59', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, '9999-12-31 23:59:59', CURRENT_TIMESTAMP)
         ON CONFLICT (user_id, valid_from) DO NOTHING;
     `)
 	if err != nil {
-		log.Fatalf("Failed to insert test data: %v", err)
+		log.Fatalf("テストデータの挿入に失敗しました: %v", err)
 	}
 
-	log.Println("Database migration and test data insertion completed successfully")
+	log.Println("データベースのマイグレーションとテストデータの挿入が成功しました")
 }

@@ -20,6 +20,7 @@ curl -X POST -H "Content-Type: application/json" -d '{
     "effective_date": "'"$effective_date"'"
 }' "$base_url/transaction"
 echo
+duplicate_transaction_id=$transaction_id
 
 # 送金者の残高不足
 echo "Insufficient balance..."
@@ -39,7 +40,7 @@ curl -X POST -H "Content-Type: application/json" -d '{
     "sender_id": "user1",
     "receiver_id": "user2",
     "amount": 1000,
-    "transaction_id": "'"$transaction_id"'",
+    "transaction_id": "'"$duplicate_transaction_id"'",
     "effective_date": "'"$effective_date"'"
 }' "$base_url/transaction"
 echo

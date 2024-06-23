@@ -44,23 +44,18 @@ func init() {
 	dbPort := os.Getenv("DB_PORT")
 
 	// データベースに接続します
-	var dbErr error
-	db, dbErr = sqlx.Connect("postgres",
+	dbConn, err := sqlx.Connect("postgres",
 		"host="+dbHost+" port="+dbPort+" user="+dbUser+" password="+dbPassword+" dbname="+dbName+" sslmode=disable")
-	if dbErr != nil {
-		log.Fatalf("Failed to connect to database: %v", dbErr)
+	if err != nil {
+		log.Fatalf("Failed to connect to database: %v", err)
 	}
 
 	// コネクションプールの設定
-	dbConn, ok := db.(*sqlx.DB)
-	if ok {
-		// コネクションプールの最大接続数を設定します
-		dbConn.SetMaxOpenConns(25)
-		// アイドル状態のコネクションの最大数を設定します
-		dbConn.SetMaxIdleConns(25)
-		// コネクションの最大生存期間を設定します
-		dbConn.SetConnMaxLifetime(5 * time.Minute)
-	}
+	dbConn.SetMaxOpenConns(25)
+	dbConn.SetMaxIdleConns(25)
+	dbConn.SetConnMaxLifetime(5 * time.Minute)
+
+	db = dbConn
 }
 
 func main() {
@@ -77,14 +72,18 @@ func main() {
 	e.Use(models.TransactionMiddleware(db))
 
 	// 取引用のエンドポイントを設定します
-	e.POST("/transactions", handlers.HandleTransaction(db))
+	e.POST("/transaction", handlers.HandleTransaction(db))
 
 	// 残高照会用のエンドポイントを設定します
-	e.GET("/balances/:userId", handlers.HandleGetBalance(db))
+	e.GET("/balance/:userId", handlers.HandleGetBalance(db))
 
 	// 取引履歴照会用のエンドポイントを設定します
-	e.GET("/transaction-histories/:userId", handlers.HandleGetTransactionHistory(db))
+	e.GET("/transaction-history/:userId", handlers.HandleGetTransactionHistory(db))
 
 	// サーバーを起動します
-	e.Start(":8080")
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+	e.Start(":" + port)
 }
