@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/go-playground/validator/v10"
 	"github.com/jmoiron/sqlx"
 	"github.com/labstack/echo/v4"
 	"github.com/sbk0716/go-btdm-api/models"
@@ -47,6 +48,11 @@ func (m *MockTx) Get(dest interface{}, query string, args ...interface{}) error 
 	return callArgs.Error(0)
 }
 
+func (m *MockTx) Select(dest interface{}, query string, args ...interface{}) error {
+	callArgs := m.Called(append([]interface{}{dest, query}, args...)...)
+	return callArgs.Error(0)
+}
+
 func (m *MockTx) Commit() error {
 	args := m.Called()
 	return args.Error(0)
@@ -55,6 +61,19 @@ func (m *MockTx) Commit() error {
 func (m *MockTx) Rollback() error {
 	args := m.Called()
 	return args.Error(0)
+}
+
+// CustomValidator はEchoのカスタムバリデータです
+type CustomValidator struct {
+	validator *validator.Validate
+}
+
+// Validate は与えられた構造体を検証します
+func (cv *CustomValidator) Validate(i interface{}) error {
+	if err := cv.validator.Struct(i); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+	}
+	return nil
 }
 
 func TestHandleTransaction(t *testing.T) {
@@ -77,8 +96,8 @@ func TestHandleTransaction(t *testing.T) {
 			},
 			setupMock: func(mockDB *MockDB, mockTx *MockTx) {
 				mockDB.On("Beginx").Return(mockTx, nil)
-				mockTx.On("Get", mock.Anything, mock.Anything, mock.Anything).Return(nil)
-				mockTx.On("Exec", mock.Anything, mock.Anything).Return(sql.Result(nil), nil)
+				mockTx.On("Get", mock.Anything, mock.Anything, mock.Anything).Return(nil).Times(3)
+				mockTx.On("Exec", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(sql.Result(nil), nil).Times(3)
 				mockTx.On("Commit").Return(nil)
 			},
 			expectedStatus: http.StatusOK,
@@ -95,7 +114,7 @@ func TestHandleTransaction(t *testing.T) {
 			},
 			setupMock:      func(mockDB *MockDB, mockTx *MockTx) {},
 			expectedStatus: http.StatusBadRequest,
-			expectedBody:   `{"error":"リクエストデータが無効です"}`,
+			expectedBody:   `{"error":"Key: 'TransactionRequest.Amount' Error:Field validation for 'Amount' failed on the 'gt' tag"}`,
 		},
 		{
 			name: "Transaction in the past",
@@ -121,6 +140,7 @@ func TestHandleTransaction(t *testing.T) {
 
 			// Echoインスタンスの作成
 			e := echo.New()
+			e.Validator = &CustomValidator{validator: validator.New()}
 			req := httptest.NewRequest(http.MethodPost, "/transaction", nil)
 			rec := httptest.NewRecorder()
 			c := e.NewContext(req, rec)
@@ -139,11 +159,23 @@ func TestHandleTransaction(t *testing.T) {
 			// ハンドラの実行
 			err := h(c)
 
-			// アサーション
-			if assert.NoError(t, err) {
-				assert.Equal(t, tc.expectedStatus, rec.Code)
-				assert.JSONEq(t, tc.expectedBody, rec.Body.String())
+			// エラーハンドリング
+			if err != nil {
+				he, ok := err.(*echo.HTTPError)
+				if ok {
+					// HTTPエラーの場合、ステータスコードとメッセージを設定
+					rec.Code = he.Code
+					rec.Body.Write([]byte(he.Message.(string)))
+				} else {
+					// 予期せぬエラーの場合、500エラーを設定
+					rec.Code = http.StatusInternalServerError
+					rec.Body.Write([]byte(err.Error()))
+				}
 			}
+
+			// アサーション
+			assert.Equal(t, tc.expectedStatus, rec.Code)
+			assert.JSONEq(t, tc.expectedBody, rec.Body.String())
 
 			// モックの検証
 			mockDB.AssertExpectations(t)
