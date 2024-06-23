@@ -28,9 +28,6 @@ type Balance struct {
 	ValidFrom  time.Time `db:"valid_from" json:"valid_from"`   // 有効開始日時
 	ValidTo    time.Time `db:"valid_to" json:"valid_to"`       // 有効終了日時
 	RecordedAt time.Time `db:"recorded_at" json:"recorded_at"` // 記録日時
-	SystemFrom time.Time `db:"system_from" json:"system_from"` // システム開始日時
-	SystemTo   time.Time `db:"system_to" json:"system_to"`     // システム終了日時
-	CreatedAt  time.Time `db:"created_at" json:"created_at"`   // 作成日時
 }
 
 // TransactionRequest は取引リクエストの情報を表す構造体です
@@ -52,19 +49,18 @@ type TransactionHistory struct {
 	TransactionID string    `db:"transaction_id" json:"transaction_id"`
 	EffectiveDate time.Time `db:"effective_date" json:"effective_date"` // 有効日時
 	RecordedAt    time.Time `db:"recorded_at" json:"recorded_at"`       // 記録日時
-	SystemFrom    time.Time `db:"system_from" json:"system_from"`       // システム開始日時
-	SystemTo      time.Time `db:"system_to" json:"system_to"`           // システム終了日時
 }
 
 // CheckUserExists はユーザーの存在を確認します
 func CheckUserExists(tx *sqlx.Tx, userID string) error {
+	// ユーザーが存在するかどうかを確認するクエリを実行します
 	var count int
 	err := tx.Get(&count, "SELECT COUNT(*) FROM users WHERE user_id = $1", userID)
 	if err != nil {
-		return fmt.Errorf("Failed to check user existence: %w", err)
+		return fmt.Errorf("ユーザーの存在確認に失敗しました: %w", err)
 	}
 	if count == 0 {
-		return errors.New("User does not exist")
+		return errors.New("ユーザーが存在しません")
 	}
 	return nil
 }
@@ -78,10 +74,11 @@ func AcquireLock(tx *sqlx.Tx, senderID, receiverID string) error {
 		ids[0], ids[1] = receiverID, senderID
 	}
 
+	// 昇順にソートされたIDの順にロックを取得します
 	for _, id := range ids {
 		_, err := tx.Exec("SELECT * FROM balances WHERE user_id = $1 FOR UPDATE", id)
 		if err != nil {
-			return fmt.Errorf("Failed to acquire lock: %w", err)
+			return fmt.Errorf("排他ロックの取得に失敗しました: %w", err)
 		}
 	}
 
@@ -90,13 +87,14 @@ func AcquireLock(tx *sqlx.Tx, senderID, receiverID string) error {
 
 // CheckDuplicateTransaction は重複リクエストをチェックします
 func CheckDuplicateTransaction(tx *sqlx.Tx, transactionID string) error {
+	// 同一のtransaction_idが存在するかどうかを確認するクエリを実行します
 	var count int
 	err := tx.Get(&count, "SELECT COUNT(*) FROM transaction_history WHERE transaction_id = $1", transactionID)
 	if err != nil {
-		return fmt.Errorf("Failed to check duplicate transaction: %w", err)
+		return fmt.Errorf("重複取引の確認に失敗しました: %w", err)
 	}
 	if count > 0 {
-		return errors.New("Duplicate transaction")
+		return errors.New("重複した取引リクエストです")
 	}
 	return nil
 }
@@ -106,38 +104,38 @@ func UpdateBalance(tx *sqlx.Tx, userID string, amount int, effectiveDate time.Ti
 	// 現在の有効な残高レコードを取得します
 	var currentBalance Balance
 	err := tx.Get(&currentBalance, `
-    SELECT * FROM balances 
-    WHERE user_id = $1 AND valid_to = '9999-12-31 23:59:59'
+        SELECT * FROM balances 
+        WHERE user_id = $1 AND valid_to = '9999-12-31 23:59:59'
     `, userID)
 	if err != nil {
-		return fmt.Errorf("Failed to get current balance: %v", err)
+		return fmt.Errorf("現在の残高の取得に失敗しました: %w", err)
 	}
 
 	// 新しい残高を計算します
 	newAmount := currentBalance.Amount + amount
 	if newAmount < 0 {
-		return errors.New("Insufficient balance")
+		return errors.New("残高が不足しています")
 	}
 
 	now := time.Now()
 
 	// 現在のレコードの有効期間を更新します
 	_, err = tx.Exec(`
-    UPDATE balances 
-    SET valid_to = $1, system_to = $2
-    WHERE user_id = $3 AND valid_to = '9999-12-31 23:59:59'
-    `, effectiveDate, now, userID)
+        UPDATE balances 
+        SET valid_to = $1
+        WHERE user_id = $2 AND valid_from = $3
+    `, effectiveDate, userID, currentBalance.ValidFrom)
 	if err != nil {
-		return fmt.Errorf("Failed to update current balance record: %w", err)
+		return fmt.Errorf("現在の残高レコードの更新に失敗しました: %w", err)
 	}
 
 	// 新しい残高レコードを挿入します
 	_, err = tx.Exec(`
-    INSERT INTO balances (user_id, amount, valid_from, valid_to, recorded_at, system_from, system_to) 
-    VALUES ($1, $2, $3, '9999-12-31 23:59:59', $4, $4, '9999-12-31 23:59:59')
+        INSERT INTO balances (user_id, amount, valid_from, valid_to, recorded_at)
+        VALUES ($1, $2, $3, '9999-12-31 23:59:59', $4)
     `, userID, newAmount, effectiveDate, now)
 	if err != nil {
-		return fmt.Errorf("Failed to insert new balance record: %w", err)
+		return fmt.Errorf("新しい残高レコードの挿入に失敗しました: %w", err)
 	}
 
 	return nil
@@ -146,34 +144,69 @@ func UpdateBalance(tx *sqlx.Tx, userID string, amount int, effectiveDate time.Ti
 // RecordTransaction は取引履歴を記録します
 func RecordTransaction(tx *sqlx.Tx, req TransactionRequest) error {
 	now := time.Now()
+	// 取引履歴レコードを挿入します
 	_, err := tx.Exec(`
-    INSERT INTO transaction_history (sender_id, receiver_id, amount, transaction_id, effective_date, recorded_at, system_from, system_to) 
-    VALUES ($1, $2, $3, $4, $5, $6, $6, '9999-12-31 23:59:59')
+        INSERT INTO transaction_history (sender_id, receiver_id, amount, transaction_id, effective_date, recorded_at)
+        VALUES ($1, $2, $3, $4, $5, $6)
     `, req.SenderID, req.ReceiverID, req.Amount, req.TransactionID, req.EffectiveDate, now)
 	if err != nil {
-		return fmt.Errorf("Failed to record transaction history: %w", err)
+		return fmt.Errorf("取引履歴の記録に失敗しました: %w", err)
 	}
 	return nil
+}
+
+// GetBalance は指定された基準日時の残高を取得します
+func GetBalance(db *sqlx.DB, userID string, asOf string) (*Balance, error) {
+	var balance Balance
+	// 指定された基準日時の残高を取得するクエリを実行します
+	err := db.Get(&balance, `
+        SELECT * FROM balances
+        WHERE user_id = $1 AND valid_from <= $2 AND valid_to > $2
+    `, userID, asOf)
+	if err != nil {
+		return nil, err
+	}
+	return &balance, nil
+}
+
+// GetTransactionHistory は指定された基準日時までの取引履歴を取得します
+func GetTransactionHistory(db *sqlx.DB, userID string, asOf string) ([]TransactionHistory, error) {
+	var history []TransactionHistory
+	// 指定された基準日時までの取引履歴を取得するクエリを実行します
+	err := db.Select(&history, `
+        SELECT * FROM transaction_history
+        WHERE (sender_id = $1 OR receiver_id = $1) AND effective_date <= $2
+        ORDER BY effective_date DESC, recorded_at DESC
+    `, userID, asOf)
+	if err != nil {
+		return nil, err
+	}
+	return history, nil
 }
 
 // TransactionMiddleware は取引処理のミドルウェアです
 func TransactionMiddleware(db DBInterface) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
+			// データベーストランザクションを開始します
 			tx, err := db.Beginx()
 			if err != nil {
-				return fmt.Errorf("Failed to start transaction: %w", err)
+				return fmt.Errorf("トランザクションの開始に失敗しました: %w", err)
 			}
 
+			// コンテキストにトランザクションを設定します
 			c.Set("tx", tx)
 
+			// 次のハンドラを呼び出します
 			if err := next(c); err != nil {
+				// エラーが発生した場合はロールバックします
 				tx.Rollback()
-				return fmt.Errorf("Transaction failed: %w", err)
+				return fmt.Errorf("トランザクションが失敗しました: %w", err)
 			}
 
+			// トランザクションをコミットします
 			if err := tx.Commit(); err != nil {
-				return fmt.Errorf("Failed to commit transaction: %w", err)
+				return fmt.Errorf("トランザクションのコミットに失敗しました: %w", err)
 			}
 
 			return nil

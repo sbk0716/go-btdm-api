@@ -1,16 +1,35 @@
-# Go BTDM API
+# Go-BTDM-API
 
-このリポジトリには、Go言語で書かれた取引処理APIのサンプルコードが含まれています。このAPIは、Bitemporal Data Modelを適用し、送金者から受取人への金額の送金と、取引履歴の記録を行います。
+Go-BTDM-APIは、Go言語とBitemporal Data Modelを使用して実装された取引処理APIのサンプルプロジェクトです。
+このAPIは、送金者から受取人への金額の送金と、取引履歴の記録を行います。
 
-## 前提条件
+## 使用技術
 
-- Go言語（バージョン1.16以上）がインストールされていること
-- PostgreSQL（バージョン12以上）がインストールされていること
-- Macが使用されていること
+- Go言語
+- Echo フレームワーク
+- PostgreSQL データベース
+- Bitemporal Data Model
+
 
 ## セットアップ
-- [Go BTDM APIのセットアップと実行手順](setup.md)
+セットアップ手順については、[Go-BTDM-APIのセットアップと実行手順](setup.md)を参照してください。
 
+
+## エンドポイント
+
+### 取引処理
+
+- `POST /transactions`
+
+### 残高照会
+
+- `GET /balances/:userId`
+  - クエリパラメータ `as_of` で基準日時を指定可能
+
+### 取引履歴照会
+
+- `GET /transaction-histories/:userId`
+  - クエリパラメータ `as_of` で基準日時を指定可能
 
 ## APIの実行
 
@@ -20,113 +39,11 @@
 go run main.go
 ```
 
-2. 別のターミナルウィンドウで、以下のCURLコマンドを実行して取引処理をテストします。
+2. 別のターミナルウィンドウで、以下のコマンドを実行してAPIをテストします。
 
 ```bash
-curl -X POST -H "Content-Type: application/json" -d '{
-  "sender_id": "user1",
-  "receiver_id": "user2",
-  "amount": 100,
-  "transaction_id": "1234567890",
-  "effective_date": "2023-06-22T10:00:00Z"
-}' "http://localhost:8080/transaction"
+./test_api.sh
 ```
-
-3. 残高照会のテスト
-
-```bash
-# 現在の残高照会
-curl "http://localhost:8080/balance/user1"
-
-# 特定の時点での残高照会
-curl "http://localhost:8080/balance/user1?as_of=2023-06-22T10:00:00Z"
-```
-
-4. 取引履歴照会のテスト
-
-```bash
-# 全ての取引履歴照会
-curl "http://localhost:8080/transaction-history/user1"
-
-# 特定の時点までの取引履歴照会
-curl "http://localhost:8080/transaction-history/user1?as_of=2023-06-22T10:00:00Z"
-```
-
-## 取引処理エンドポイントのエラーシナリオ
-
-取引処理エンドポイント(`/transaction`)に以下のようなデータを送信するとエラーが発生します。
-
-1. 存在しない送金者IDまたは受取人IDを指定した場合
-
-```json
-{
-  "sender_id": "non_existent_user",
-  "receiver_id": "user2",
-  "amount": 100,
-  "transaction_id": "1234567890",
-  "effective_date": "2023-06-22T10:00:00Z"
-}
-```
-
-このリクエストは、存在しないユーザーIDが指定されているため、エラーとなります。APIは送金者と受取人の両方が実在するユーザーであることを確認します。
-
-2. 送金額が0以下の場合
-
-```json
-{
-  "sender_id": "user1",
-  "receiver_id": "user2",
-  "amount": -100,
-  "transaction_id": "1234567890",
-  "effective_date": "2023-06-22T10:00:00Z"
-}
-```
-
-このリクエストは、送金額が負の値であるため、エラーとなります。送金額は常に正の値である必要があります。
-
-3. 送金額が送金者の残高を超えている場合
-
-```json
-{
-  "sender_id": "user1",
-  "receiver_id": "user2",
-  "amount": 1000000000,
-  "transaction_id": "1234567890",
-  "effective_date": "2023-06-22T10:00:00Z"
-}
-```
-
-このリクエストは、送金額が送金者の残高を超えているため、エラーとなります。APIは送金処理前に送金者の残高が十分であることを確認します。
-
-4. effective_dateが現在時刻より前の日時の場合
-
-```json
-{
-  "sender_id": "user1",
-  "receiver_id": "user2",
-  "amount": 100,
-  "transaction_id": "1234567890",
-  "effective_date": "2022-06-22T10:00:00Z"
-}
-```
-
-このリクエストは、effective_dateが現在時刻より前の日時であるため、エラーとなります。APIはeffective_dateが現在時刻以降の値であることを確認します。
-
-5. 重複したtransaction_idを指定した場合
-
-```json
-{
-  "sender_id": "user1",
-  "receiver_id": "user2",
-  "amount": 100,
-  "transaction_id": "1234567890",
-  "effective_date": "2023-06-22T10:00:00Z"
-}
-```
-
-このリクエストは、既に使用されたtransaction_idを指定しているため、エラーとなります。APIはtransaction_idの重複を防ぐために、一意のtransaction_idのみを受け入れます。
-
-これらのエラーシナリオは、APIの一貫性と整合性を維持するために重要です。APIは受信したデータを検証し、不正なリクエストを適切に処理します。
 
 ## Bitemporal Data Modelについて
 
@@ -141,11 +58,3 @@ curl "http://localhost:8080/transaction-history/user1?as_of=2023-06-22T10:00:00Z
 
 1. 排他制御：トランザクション内で`SELECT ... FOR UPDATE`を使用し、更新対象のレコードをロックしています。
 2. 重複リクエスト防止：`transaction_id`をユニークキーとして使用し、同一のトランザクションIDによる重複リクエストを防いでいます。
-
-## テストの実行
-
-テストを実行するには、以下のコマンドを実行します。
-
-```bash
-go test ./...
-```

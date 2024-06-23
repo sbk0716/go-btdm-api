@@ -54,8 +54,11 @@ func init() {
 	// コネクションプールの設定
 	dbConn, ok := db.(*sqlx.DB)
 	if ok {
+		// コネクションプールの最大接続数を設定します
 		dbConn.SetMaxOpenConns(25)
+		// アイドル状態のコネクションの最大数を設定します
 		dbConn.SetMaxIdleConns(25)
+		// コネクションの最大生存期間を設定します
 		dbConn.SetConnMaxLifetime(5 * time.Minute)
 	}
 }
@@ -74,13 +77,13 @@ func main() {
 	e.Use(models.TransactionMiddleware(db))
 
 	// 取引用のエンドポイントを設定します
-	e.POST("/transaction", handlers.HandleTransaction(db))
+	e.POST("/transactions", handlers.HandleTransaction(db))
 
 	// 残高照会用のエンドポイントを設定します
-	e.GET("/balance/:userId", handlers.HandleGetBalance(db))
+	e.GET("/balances/:userId", handlers.HandleGetBalance(db))
 
 	// 取引履歴照会用のエンドポイントを設定します
-	e.GET("/transaction-history/:userId", handlers.HandleGetTransactionHistory(db))
+	e.GET("/transaction-histories/:userId", handlers.HandleGetTransactionHistory(db))
 
 	// サーバーを起動します
 	e.Start(":8080")
