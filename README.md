@@ -19,16 +19,16 @@ Go-BTDM-APIは、Go言語とBitemporal Data Modelを使用して実装された�
 
 ### 取引処理
 
-- `POST /transactions`
+- `POST /transaction`
 
 ### 残高照会
 
-- `GET /balances/:userId`
+- `GET /balance/:userId`
   - クエリパラメータ `as_of` で基準日時を指定可能
 
 ### 取引履歴照会
 
-- `GET /transaction-histories/:userId`
+- `GET /transaction-history/:userId`
   - クエリパラメータ `as_of` で基準日時を指定可能
 
 ## APIの実行
