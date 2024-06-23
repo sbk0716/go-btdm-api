@@ -9,6 +9,11 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
+// DBInterface はデータベース操作のインターフェースです
+type DBInterface interface {
+	Beginx() (*sqlx.Tx, error)
+}
+
 // User はユーザー情報を表す構造体です
 type User struct {
 	UserID   string `db:"user_id" json:"user_id"`
@@ -152,7 +157,7 @@ func RecordTransaction(tx *sqlx.Tx, req TransactionRequest) error {
 }
 
 // TransactionMiddleware は取引処理のミドルウェアです
-func TransactionMiddleware(db *sqlx.DB) echo.MiddlewareFunc {
+func TransactionMiddleware(db DBInterface) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
 			tx, err := db.Beginx()

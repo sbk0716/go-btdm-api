@@ -13,7 +13,7 @@ import (
 )
 
 // HandleTransaction は取引処理のハンドラーです
-func HandleTransaction(db *sqlx.DB) echo.HandlerFunc {
+func HandleTransaction(db models.DBInterface) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		// リクエストの情報を取得します
 		var req models.TransactionRequest
@@ -83,7 +83,7 @@ func processTransaction(tx *sqlx.Tx, req models.TransactionRequest) error {
 }
 
 // HandleGetBalance は残高照会のハンドラーです
-func HandleGetBalance(db *sqlx.DB) echo.HandlerFunc {
+func HandleGetBalance(db models.DBInterface) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		userID := c.Param("userId")
 		asOf := c.QueryParam("as_of")
@@ -93,13 +93,13 @@ func HandleGetBalance(db *sqlx.DB) echo.HandlerFunc {
 
 		if asOf == "" {
 			// as_ofパラメータが指定されていない場合は現在の残高を取得
-			err = db.Get(&balance, `
+			err = db.(*sqlx.DB).Get(&balance, `
             SELECT * FROM balances
             WHERE user_id = $1 AND valid_to = '9999-12-31 23:59:59'
             `, userID)
 		} else {
 			// as_ofパラメータが指定されている場合はその時点での残高を取得
-			err = db.Get(&balance, `
+			err = db.(*sqlx.DB).Get(&balance, `
             SELECT * FROM balances
             WHERE user_id = $1 AND valid_from <= $2 AND valid_to > $2
             `, userID, asOf)
@@ -116,7 +116,7 @@ func HandleGetBalance(db *sqlx.DB) echo.HandlerFunc {
 }
 
 // HandleGetTransactionHistory は取引履歴照会のハンドラーです
-func HandleGetTransactionHistory(db *sqlx.DB) echo.HandlerFunc {
+func HandleGetTransactionHistory(db models.DBInterface) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		userID := c.Param("userId")
 		asOf := c.QueryParam("as_of")
@@ -126,14 +126,14 @@ func HandleGetTransactionHistory(db *sqlx.DB) echo.HandlerFunc {
 
 		if asOf == "" {
 			// as_ofパラメータが指定されていない場合は全ての取引履歴を取得
-			err = db.Select(&history, `
+			err = db.(*sqlx.DB).Select(&history, `
             SELECT * FROM transaction_history
             WHERE sender_id = $1 OR receiver_id = $1
             ORDER BY effective_date DESC, recorded_at DESC
             `, userID)
 		} else {
 			// as_ofパラメータが指定されている場合はその時点までの取引履歴を取得
-			err = db.Select(&history, `
+			err = db.(*sqlx.DB).Select(&history, `
             SELECT * FROM transaction_history
             WHERE (sender_id = $1 OR receiver_id = $1) AND effective_date <= $2
             ORDER BY effective_date DESC, recorded_at DESC

@@ -17,7 +17,7 @@ import (
 )
 
 // グローバル変数
-var db *sqlx.DB
+var db models.DBInterface
 
 // CustomValidator はEchoのカスタムバリデータです
 type CustomValidator struct {
@@ -52,9 +52,12 @@ func init() {
 	}
 
 	// コネクションプールの設定
-	db.SetMaxOpenConns(25)
-	db.SetMaxIdleConns(25)
-	db.SetConnMaxLifetime(5 * time.Minute)
+	dbConn, ok := db.(*sqlx.DB)
+	if ok {
+		dbConn.SetMaxOpenConns(25)
+		dbConn.SetMaxIdleConns(25)
+		dbConn.SetConnMaxLifetime(5 * time.Minute)
+	}
 }
 
 func main() {
